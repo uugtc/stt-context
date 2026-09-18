@@ -1,0 +1,63 @@
+{
+  "name": "stt-context",
+  "version": "0.1.0",
+  "description": "Context-aware meeting notes for macOS",
+  "private": true,
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write src tests scripts *.ts *.json",
+    "format:check": "prettier --check src tests scripts *.ts *.json",
+    "package": "npm run typecheck && npm run build && electron-builder --mac --dir",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "build": {
+    "electronDist": "node_modules/electron/dist",
+    "appId": "local.stt-context.app",
+    "productName": "STT Context",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": "dir",
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "会議中のあなたの声を録音します。",
+        "NSAudioCaptureUsageDescription": "オンライン会議の相手の声を録音します。",
+        "NSScreenCaptureUsageDescription": "オンライン会議のシステム音声を取得します。映像は保存しません。"
+      }
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^1.47.0",
+    "openai": "^7.17.0",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.13.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "prettier": "^3.9.8",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^5.0.1"
+  }
+}
