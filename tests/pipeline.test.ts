@@ -1,11 +1,32 @@
 import { it, expect } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Store } from '../src/main/store';
 import { Pipeline } from '../src/main/pipeline';
+import { describeError, logError, setLogFile } from '../src/main/log';
 import type { AIProvider } from '../src/main/openai';
 import type { Media } from '../src/main/media';
+
+it('keeps the transport cause in the log when the UI only stores the message', () => {
+  const cause = new Error('headers timed out');
+  (cause as Error & { code: string }).code = 'UND_ERR_HEADERS_TIMEOUT';
+  const error = new Error('Request timed out. sk-testsecret');
+  error.cause = cause;
+  expect(describeError(error)).toContain('UND_ERR_HEADERS_TIMEOUT');
+  expect(describeError(error)).toContain('[redacted]');
+  expect(describeError(error)).not.toContain('sk-testsecret');
+  const dir = mkdtempSync(join(tmpdir(), 'stt-log-'));
+  const file = join(dir, 'main.log');
+  setLogFile(file);
+  try {
+    logError(error);
+    expect(readFileSync(file, 'utf8')).toContain('UND_ERR_HEADERS_TIMEOUT');
+  } finally {
+    setLogFile(undefined);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 it('retries only unfinished transcription and preserves successfully saved segments', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'stt-pipeline-'));

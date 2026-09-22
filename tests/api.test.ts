@@ -1,11 +1,34 @@
 import { it, expect } from 'vitest';
 import OpenAI from 'openai';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { OpenAIProvider } from '../src/main/openai';
 import { buildContext } from '../src/shared/context';
 import { emptyContext } from '../src/shared/types';
+
+function undiciAgentLimits(dispatcher: object): { headersTimeout: number; bodyTimeout: number } {
+  const options = Object.getOwnPropertySymbols(dispatcher).find(
+    (symbol) => String(symbol) === 'Symbol(options)',
+  );
+  if (!options) throw new Error('undici agent options missing');
+  return (dispatcher as Record<symbol, { headersTimeout: number; bodyTimeout: number }>)[options];
+}
+
+it('waits for long audio responses past the Node.js fetch header timeout', () => {
+  const ai = new OpenAIProvider('test-key', 'gpt-4o-transcribe', 'gpt-4.1-mini');
+  const client = (ai as unknown as { client: OpenAI }).client;
+  const dispatcher = client.fetchOptions?.dispatcher;
+  expect(dispatcher).toBeInstanceOf(Agent);
+  const limits = undiciAgentLimits(dispatcher as object);
+  expect(client.timeout).toBeGreaterThanOrEqual(30 * 60 * 1000);
+  expect(limits.headersTimeout).toBeGreaterThanOrEqual(client.timeout);
+  expect(limits.bodyTimeout).toBeGreaterThanOrEqual(client.timeout);
+  expect((client as unknown as { _options: { fetch?: typeof fetch } })._options.fetch).toBe(
+    undiciFetch,
+  );
+});
 
 it('sends context to transcription but never to the incompatible diarization request', async () => {
   const forms: FormData[] = [];

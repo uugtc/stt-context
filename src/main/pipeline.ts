@@ -8,6 +8,7 @@ import { buildContext } from '../shared/context';
 import { coverSpeechGaps, groupSegments, normalizeSegments } from '../shared/segments';
 import type { Meeting } from '../shared/types';
 import { fingerprint } from './fingerprint';
+import { logError } from './log';
 
 export class Pipeline {
   private active = new Map<string, AbortController>();
@@ -150,7 +151,7 @@ export class Pipeline {
             segment.end + 0.12,
             next && next.start >= segment.end ? next.start : segment.end + 0.12,
           );
-          await media.clip(file, clip, start - part.offset, end - part.offset, signal);
+          await media.clip(file, clip, start - part.offset, end - part.offset, signal, 0.25);
           segment.text = await ai.transcribe(clip, meeting.snapshot!, signal);
           segment.recognizedText = segment.text;
           segment.refined = true;
@@ -196,6 +197,7 @@ export class Pipeline {
         segment.start,
         segment.end,
         signal,
+        0.25,
       );
       segment.candidate = await this.ai().transcribe(clip, context, signal);
       rmSync(clip, { force: true });
@@ -238,6 +240,7 @@ export class Pipeline {
   }
 }
 export function safeError(error: unknown): string {
+  logError(error);
   const text = error instanceof Error ? error.message : '処理に失敗しました。';
   return text.replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]').slice(0, 600);
 }

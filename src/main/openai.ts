@@ -1,8 +1,10 @@
 import OpenAI from 'openai';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { createReadStream, statSync } from 'node:fs';
 import { z } from 'zod';
 import type { ContextSnapshot, Segment, Summary } from '../shared/types';
 import type { RawSegment } from '../shared/segments';
+import { logInfo } from './log';
 
 const item = z.object({ text: z.string(), evidence: z.array(z.string()) });
 export const summarySchema = z.object({
@@ -34,7 +36,29 @@ export class OpenAIProvider implements AIProvider {
     private summaryModel: string,
     client?: OpenAI,
   ) {
-    this.client = client || new OpenAI({ apiKey, timeout: 10 * 60 * 1000, maxRetries: 2 });
+    // A 15-minute part can sit without response headers longer than Node fetch's
+    // 5-minute default. Keep undici slightly above the SDK timeout so the SDK
+    // abort wins instead of UND_ERR_HEADERS_TIMEOUT.
+    const timeout = 30 * 60 * 1000;
+    const transportTimeout = timeout + 60 * 1000;
+    this.client =
+      client ||
+      new OpenAI({
+        apiKey,
+        timeout,
+        maxRetries: 2,
+        fetch: undiciFetch as unknown as typeof fetch,
+        fetchOptions: {
+          dispatcher: new Agent({
+            headersTimeout: transportTimeout,
+            bodyTimeout: transportTimeout,
+          }),
+        },
+      });
+    if (!client)
+      logInfo(
+        `OpenAI client timeout=${timeout}ms headersTimeout=${transportTimeout}ms bodyTimeout=${transportTimeout}ms`,
+      );
   }
   async diarize(file: string, signal?: AbortSignal): Promise<RawSegment[]> {
     if (statSync(file).size > 24 * 1024 * 1024)

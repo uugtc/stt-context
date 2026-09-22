@@ -89,24 +89,30 @@ export class Media {
     start: number,
     end: number,
     signal?: AbortSignal,
+    minimumSeconds = 0,
   ): Promise<void> {
     if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start)
       throw new Error('不正な音声区間です。');
+    if (!(minimumSeconds >= 0)) throw new Error('不正な音声区間です。');
+    const length = end - start;
+    // Output -t would trim the silence back off. Input -t keeps the slice inside this turn.
+    const pad = minimumSeconds > length;
     mkdirSync(dirname(output), { recursive: true });
     await this.run(
       [
         '-y',
         '-ss',
         String(start),
+        ...(pad ? ['-t', String(length)] : []),
         '-i',
         source,
-        '-t',
-        String(end - start),
+        ...(pad ? [] : ['-t', String(length)]),
         '-vn',
         '-ac',
         '1',
         '-ar',
         '16000',
+        ...(pad ? ['-af', `apad=whole_dur=${minimumSeconds}`] : []),
         '-c:a',
         'aac',
         '-b:a',

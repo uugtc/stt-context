@@ -29,6 +29,7 @@ import { Store } from './store';
 import { Media } from './media';
 import { OpenAIProvider } from './openai';
 import { Pipeline, safeError } from './pipeline';
+import { setLogFile } from './log';
 import { readDocument } from './documents';
 import { exportText } from './export';
 import { applyCandidate, editSegment } from '../shared/segments';
@@ -407,7 +408,9 @@ function registerHandlers() {
 app
   .whenReady()
   .then(() => {
-    store = new Store(app.getPath('userData'));
+    const userData = app.getPath('userData');
+    setLogFile(join(userData, 'main.log'));
+    store = new Store(userData);
     pipeline = new Pipeline(store, ai, () => new Media(store.settings().ffmpegPath), notify);
     protocol.handle('stt-media', async (request) => {
       try {
@@ -497,7 +500,7 @@ app
     else void win.loadFile(join(__dirname, '../renderer/index.html'));
   })
   .catch((error) => {
-    console.error(safeError(error));
+    safeError(error);
     app.quit();
   });
 app.on('window-all-closed', () => app.quit());
